@@ -54,6 +54,9 @@ DISCOVERY_API = 'https://cloudiot.googleapis.com/$discovery/rest'
 SERVICE_NAME = 'cloudiot'
 
 
+
+sn_set = set()
+
 class Server(object):
     """Represents the state of the server."""
 
@@ -151,6 +154,9 @@ class Server(object):
             """Logic executed when a message is received from
             subscribed topic.
             """
+
+#	    print ('DEBUG: message ' + message.data.decode('utf-8'))
+
             try:
                 data = json.loads(message.data.decode('utf-8'))
             except ValueError as e:
@@ -158,6 +164,24 @@ class Server(object):
                     message.data, e))
                 message.ack()
                 return
+
+	    # if a new device, say so
+	    sn = data['sn']
+	    temp = data['data']['temp']['value']
+#	    print ('DEBUG - The device ' + sn + ' has a temperature ' + str(temp))
+
+	    if sn not in sn_set:
+		sn_set.add (sn)
+		print ('INFO - discovered ' + str(len(sn_set)) + ' devices')
+
+	    if temp > 60000:
+		print ('WARN - device ' + sn + ' temp ' + str(temp) + ' > threshold 60000')
+
+            # Acknowledge the consumed message. This will ensure that they
+            # are not redelivered to this subscription.
+            message.ack()
+
+	    return
 
             # Get the registry id and device id from the attributes. These are
             # automatically supplied by IoT, and allow the server to determine
@@ -174,10 +198,6 @@ class Server(object):
               device_registry_id,
               device_id,
               data)
-
-            # Acknowledge the consumed message. This will ensure that they
-            # are not redelivered to this subscription.
-            message.ack()
 
         print('Listening for messages on {}'.format(subscription_path))
         subscriber.subscribe(subscription_path, callback=callback)
@@ -222,3 +242,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+ 
